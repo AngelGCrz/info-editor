@@ -138,9 +138,15 @@ async function main() {
     const vite = await importGameVite(gameDir);
     const openPath = args.lang ? `/?lang=${encodeURIComponent(args.lang)}` : '/';
 
+    const shutdown = async () => {
+        console.log('\n  ✎ info-editor cerrado desde el navegador.\n');
+        await server.close();
+        process.exit(0);
+    };
+
     const server = await vite.createServer({
         root: gameDir,
-        plugins: [infoEditor()],
+        plugins: [infoEditor({ onShutdown: shutdown })],
         server: {
             open: args.open ? openPath : false,
             ...(args.port ? { port: args.port } : {}),

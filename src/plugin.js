@@ -49,9 +49,11 @@ function engineModule(root) {
 /**
  * @param {object} [options]
  * @param {Record<string, {path: string, key: string, loaderKey: string}>} [options.files]
+ * @param {() => void} [options.onShutdown] lo llama el botón "Cerrar editor"; el CLI apaga el proceso.
  */
 export default function infoEditor(options = {}) {
     const files = options.files || DEFAULT_FILES;
+    let viteServer = null;
     // Archivos que escribió el editor, para no avisarle de sus propios cambios.
     const ownWrites = new Map();
     let langRoot = '';
@@ -158,6 +160,7 @@ export default function infoEditor(options = {}) {
         },
 
         configureServer(server) {
+            viteServer = server;
             server.watcher.add(langRoot);
             server.watcher.on('change', (abs) => {
                 const info = fileIdFromPath(path.resolve(abs));
@@ -182,6 +185,13 @@ export default function infoEditor(options = {}) {
                         }
 
                         return send(res, 200, { game: path.basename(root), files, langs, available });
+                    }
+
+                    if (url.pathname === '/shutdown' && req.method === 'POST') {
+                        send(res, 200, { ok: true });
+                        // Se responde primero para que el navegador muestre el aviso antes de que se apague.
+                        setTimeout(() => (options.onShutdown ? options.onShutdown() : viteServer.close()), 150);
+                        return;
                     }
 
                     if (url.pathname === '/file') {

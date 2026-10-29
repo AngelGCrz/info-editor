@@ -40,6 +40,7 @@ El juego necesita `npm install` hecho (igual que para `npm run dev`).
 - Si el idioma no es `eng`, cada texto muestra el de `eng` como referencia.
 - `⌘S` guarda, `⌘Z` / `⇧⌘Z` deshacer/rehacer. Al guardar se respeta la indentación del archivo; la primera vez puede normalizar espacios (`"scale":1` → `"scale": 1`).
 - Las páginas de doubleup vienen de `common` y solo se pueden ver.
+- **⏻ Cerrar editor**: si hay cambios pregunta si guardarlos, apaga el servidor del juego y cierra la pestaña (o deja un aviso con los archivos guardados si el navegador no permite cerrarla). También puedes cerrarlo con `Ctrl+C` o `q` en la terminal.
 
 ## Cómo funciona
 

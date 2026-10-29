@@ -31,6 +31,8 @@ const S = {
     moveMode: storage('moveMode', true),
     open: storage('open', true),
     infoVisible: false,
+    savedFiles: new Set(),  // archivos guardados en esta sesión, para el aviso al cerrar
+    closed: false,
 };
 
 const els = {};
@@ -249,8 +251,10 @@ async function save() {
 
     if (!dirty.length) {
         setStatus('Sin cambios por guardar');
-        return;
+        return true;
     }
+
+    let ok = true;
 
     try {
         const saved = [];
@@ -259,15 +263,55 @@ async function save() {
             const text = JSON.stringify(S.models[key]);
             const result = JSON.parse(await api(`/file?lang=${lang}&file=${S.keyToId[key]}`, { method: 'PUT', body: text }));
             S.saved[key] = text;
+            S.savedFiles.add(result.path);
             saved.push(result.path);
         }
 
         setStatus('Guardado: ' + saved.join(', '), 'ok');
     } catch (error) {
         setStatus('Error al guardar: ' + error.message, 'error');
+        ok = false;
     }
 
     updateHeader();
+    return ok;
+}
+
+// Guarda si hace falta, apaga el servidor del CLI y deja un aviso en la pestaña.
+async function closeEditor() {
+    if (isDirty()) {
+        if (confirm('Hay cambios sin guardar. ¿Guardarlos antes de cerrar?\n\nAceptar = guardar y cerrar\nCancelar = otras opciones')) {
+            if (!(await save())) {
+                return;
+            }
+        } else if (!confirm('¿Cerrar el editor SIN guardar los cambios?')) {
+            return;
+        }
+    }
+
+    S.closed = true;
+
+    try {
+        await api('/shutdown', { method: 'POST' });
+    } catch (error) {
+        S.closed = false;
+        setStatus('No se pudo cerrar el editor: ' + error.message, 'error');
+        return;
+    }
+
+    const files = [...S.savedFiles];
+
+    document.body.append(h('div', { class: 'ie-closed' },
+        h('div', { class: 'ie-closed-box' },
+            h('strong', {}, 'Info editor cerrado'),
+            files.length
+                ? h('p', {}, 'Guardaste cambios en:', h('br'), ...files.map((file) => h('code', {}, file)))
+                : h('p', {}, 'No se guardaron cambios.'),
+            h('p', { class: 'ie-muted' }, 'El servidor del juego se apagó. Ya puedes cerrar esta pestaña.'),
+        ),
+    ));
+
+    window.close();
 }
 
 async function reloadFromDisk() {
@@ -639,6 +683,7 @@ function buildShell() {
                 h('strong', { class: 'ie-title' }, 'Info editor'),
                 els.lang,
                 h('span', { class: 'ie-grow' }),
+                h('button', { class: 'ie-danger', title: 'Guardar si hace falta y apagar el editor', onclick: closeEditor }, '⏻ Cerrar editor'),
                 h('button', { title: 'Ocultar panel', onclick: () => setOpen(false) }, '⟩'),
             ),
             h('div', { class: 'ie-row' },
@@ -1042,7 +1087,7 @@ async function init() {
     buildShell();
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('beforeunload', (event) => {
-        if (isDirty()) {
+        if (isDirty() && !S.closed) {
             event.preventDefault();
         }
     });
@@ -1108,6 +1153,12 @@ function injectStyles() {
     html.ie-open .ie-panel { display: flex; }
     html.ie-open .ie-tab { display: none; }
     .ie-tab { position: fixed; top: 8px; right: 8px; z-index: 100000; }
+    .ie-panel .ie-danger:hover { background: #5a2626; border-color: #8a3a3a; }
+    .ie-closed { position: fixed; inset: 0; z-index: 100001; background: rgba(10,11,14,.92); display: flex;
+        align-items: center; justify-content: center; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e6e6e6; }
+    .ie-closed-box { background: #1b1d22; border: 1px solid #333; border-radius: 8px; padding: 24px 28px; max-width: 460px; }
+    .ie-closed-box strong { font-size: 18px; }
+    .ie-closed-box code { display: block; color: #6fd39a; margin-top: 4px; }
     .ie-panel *, .ie-tab { box-sizing: border-box; }
     .ie-header { padding: 8px; border-bottom: 1px solid #333; display: flex; flex-direction: column; gap: 6px; }
     .ie-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
