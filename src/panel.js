@@ -264,10 +264,11 @@ async function save() {
             const result = JSON.parse(await api(`/file?lang=${lang}&file=${S.keyToId[key]}`, { method: 'PUT', body: text }));
             S.saved[key] = text;
             S.savedFiles.add(result.path);
-            saved.push(result.path);
+            saved.push(result.path + (result.minimal ? '' : ' (reformateado completo)'));
         }
 
-        setStatus('Guardado: ' + saved.join(', '), 'ok');
+        const fullRewrite = saved.some((each) => each.endsWith('(reformateado completo)'));
+        setStatus('Guardado: ' + saved.join(', '), fullRewrite ? 'warn' : 'ok');
     } catch (error) {
         setStatus('Error al guardar: ' + error.message, 'error');
         ok = false;
@@ -875,8 +876,9 @@ function offsetField(label, path, placeholder) {
     const x = h('input', { type: 'number', value: point ? point.x : '', placeholder: placeholder ? fallback.x : 'x' });
     const y = h('input', { type: 'number', value: point ? point.y : '', placeholder: placeholder ? fallback.y : 'y' });
 
+    // Se escribe lo que está en los campos, sin redondear: editar X no debe tocar Y.
     const write = () => {
-        const next = x.value === '' && y.value === '' ? undefined : formatOffset(Number(x.value || fallback.x), Number(y.value || fallback.y));
+        const next = x.value === '' && y.value === '' ? undefined : `${x.value === '' ? fallback.x : x.value},${y.value === '' ? fallback.y : y.value}`;
         commit('field:' + path.join('.'), () => setAt(S.models, path, next));
     };
 

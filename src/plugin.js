@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { patchJson } from './jsonpatch.js';
 
 const SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const VIRTUAL_PREFIX = 'virtual:info-editor/';
@@ -77,20 +78,20 @@ export default function infoEditor(options = {}) {
         return id && lang ? { lang, file: id } : null;
     };
 
+    // Solo cambia en el archivo el texto de los valores que cambiaron (ver jsonpatch.js).
     const writeJson = (abs, text) => {
         const data = JSON.parse(text);
         const original = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
-        const indentMatch = original.match(/^[\r\n]*[{[][\r\n]+([ \t]+)/);
-        const indent = indentMatch ? indentMatch[1] : '    ';
-        const eol = original.includes('\r\n') ? '\r\n' : '\n';
-        let out = JSON.stringify(data, null, indent).replace(/\n/g, eol);
+        const result = original
+            ? patchJson(original, data)
+            : { text: JSON.stringify(data, null, 4) + '\n', minimal: true };
 
-        if (original === '' || /\r?\n$/.test(original)) {
-            out += eol;
+        if (result.text !== original) {
+            ownWrites.set(abs, Date.now());
+            fs.writeFileSync(abs, result.text, 'utf8');
         }
 
-        ownWrites.set(abs, Date.now());
-        fs.writeFileSync(abs, out, 'utf8');
+        return result.minimal;
     };
 
     const readBody = (req) => new Promise((resolve, reject) => {
@@ -215,8 +216,8 @@ export default function infoEditor(options = {}) {
                                 return send(res, 404, { error: 'no existe la carpeta del idioma' });
                             }
 
-                            writeJson(abs, await readBody(req));
-                            return send(res, 200, { ok: true, path: path.relative(root, abs) });
+                            const minimal = writeJson(abs, await readBody(req));
+                            return send(res, 200, { ok: true, minimal, path: path.relative(root, abs) });
                         }
                     }
 

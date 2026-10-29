@@ -38,7 +38,7 @@ El juego necesita `npm install` hecho (igual que para `npm run dev`).
 - **JSON de la página**: edición cruda para lo que no tenga campo.
 - `⚠` avisa cuando un texto se sale del fondo de la página.
 - Si el idioma no es `eng`, cada texto muestra el de `eng` como referencia.
-- `⌘S` guarda, `⌘Z` / `⇧⌘Z` deshacer/rehacer. Al guardar se respeta la indentación del archivo; la primera vez puede normalizar espacios (`"scale":1` → `"scale": 1`).
+- `⌘S` guarda, `⌘Z` / `⇧⌘Z` deshacer/rehacer. Al guardar solo cambia en el archivo el texto de los valores que editaste; el resto (indentación, espacios, saltos de línea, orden, escapes) queda igual, así que el diff de git muestra solo tus cambios (`src/jsonpatch.js`).
 - Las páginas de doubleup vienen de `common` y solo se pueden ver.
 - **⏻ Cerrar editor**: si hay cambios pregunta si guardarlos, apaga el servidor del juego y cierra la pestaña (o deja un aviso con los archivos guardados si el navegador no permite cerrarla). También puedes cerrarlo con `Ctrl+C` o `q` en la terminal.
 
