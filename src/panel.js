@@ -9,6 +9,7 @@ const API = '/__info-editor/api';
 const STATE_INFO = 'GAMESTATE_INFO';
 const BASE_LANG = 'eng';
 const PANEL_WIDTH = 420;
+const PANEL_MIN_WIDTH = 300;
 
 const params = new URLSearchParams(location.search);
 const lang = params.get('lang') || BASE_LANG;
@@ -679,6 +680,7 @@ function buildShell() {
     els.info = h('button', { title: 'Entrar al estado de info del juego', onclick: openInfo }, 'Abrir info');
 
     els.panel = h('aside', { class: 'ie-panel' },
+        h('div', { class: 'ie-resizer', title: 'Arrastrar para cambiar el ancho (doble clic: restablecer)', onpointerdown: startResize, ondblclick: () => setPanelWidth(PANEL_WIDTH, true) }),
         h('header', { class: 'ie-header' },
             h('div', { class: 'ie-row' },
                 h('strong', { class: 'ie-title' }, 'Info editor'),
@@ -701,7 +703,44 @@ function buildShell() {
     els.tab = h('button', { class: 'ie-tab', onclick: () => setOpen(true), title: 'Abrir info editor' }, '✎ Info');
 
     document.body.append(els.overlay, els.panel, els.tab);
+    setPanelWidth(storage('panelWidth', PANEL_WIDTH));
+    window.addEventListener('resize', () => setPanelWidth(S.panelWidth));
     setOpen(S.open);
+}
+
+function clampPanelWidth(width) {
+    const max = Math.max(PANEL_MIN_WIDTH, window.innerWidth - 200);
+    return Math.round(Math.min(max, Math.max(PANEL_MIN_WIDTH, width)));
+}
+
+function setPanelWidth(width, persist = false) {
+    S.panelWidth = clampPanelWidth(width);
+    document.documentElement.style.setProperty('--ie-panel-w', S.panelWidth + 'px');
+
+    if (persist) {
+        storage('panelWidth', PANEL_WIDTH, S.panelWidth);
+        window.dispatchEvent(new Event('resize'));
+    }
+}
+
+function startResize(e) {
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    document.documentElement.classList.add('ie-resizing');
+
+    const onMove = (ev) => setPanelWidth(window.innerWidth - ev.clientX);
+    const onUp = () => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        document.documentElement.classList.remove('ie-resizing');
+        setPanelWidth(S.panelWidth, true);
+    };
+
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
 }
 
 function renderPanel() {
@@ -1148,11 +1187,14 @@ async function init() {
 
 function injectStyles() {
     const css = `
-    html.ie-open #gameCanvas { width: calc(100vw - ${PANEL_WIDTH}px) !important; height: auto !important; }
+    html.ie-open #gameCanvas { width: calc(100vw - var(--ie-panel-w, ${PANEL_WIDTH}px)) !important; height: auto !important; }
     .ie-panel, .ie-tab { font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e6e6e6; }
-    .ie-panel { position: fixed; top: 0; right: 0; bottom: 0; width: ${PANEL_WIDTH}px; z-index: 100000; display: none;
+    .ie-panel { position: fixed; top: 0; right: 0; bottom: 0; width: var(--ie-panel-w, ${PANEL_WIDTH}px); z-index: 100000; display: none;
         flex-direction: column; background: #1b1d22; border-left: 1px solid #333; box-sizing: border-box; }
     html.ie-open .ie-panel { display: flex; }
+    .ie-resizer { position: absolute; top: 0; bottom: 0; left: -4px; width: 8px; cursor: col-resize; z-index: 2; touch-action: none; }
+    .ie-resizer:hover, html.ie-resizing .ie-resizer { background: rgba(74,143,224,.45); }
+    html.ie-resizing, html.ie-resizing * { cursor: col-resize !important; user-select: none !important; }
     html.ie-open .ie-tab { display: none; }
     .ie-tab { position: fixed; top: 8px; right: 8px; z-index: 100000; }
     .ie-panel .ie-danger:hover { background: #5a2626; border-color: #8a3a3a; }
